@@ -89,7 +89,8 @@ for d in pipe:
 
 
 
-
+## ISSUE:
+- Run the model sentence wise
 
 
 
