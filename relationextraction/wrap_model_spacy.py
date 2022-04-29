@@ -1,5 +1,3 @@
-"""TODO: apply batching on doc level instead"""
-
 from typing import Callable, Dict, Iterable, Iterator, List
 
 import spacy
