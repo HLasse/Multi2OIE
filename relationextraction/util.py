@@ -133,3 +133,28 @@ def token_span_to_spacy_span(span: Tuple[int, int], doc: Doc):
 def install_extension(doc_attr) -> None:
     if not Doc.has_extension(doc_attr):
         Doc.set_extension(doc_attr, default=None)
+
+
+def join_extraction_spans(spans: List[List[List[int]]]):
+    return [item for sublist in l for item in sublist]
+
+
+def match_extraction_spans_to_wp(extraction_spans, wordpieces):
+
+    max_wp_idx = 0
+    matched_extractions = []
+    for i, sent_span in enumerate(extraction_spans):
+        new_spans = []
+        if i > 0:
+            max_wp_idx += len(wordpieces[i - 1])
+        for triplet in sent_span:
+            trip = []
+            for relation_type in triplet:
+                rel = []
+                for val in relation_type:
+                    rel.append(val + max_wp_idx)
+                trip.append(rel)
+            new_spans.append(trip)
+
+        matched_extractions += new_spans
+    return matched_extractions

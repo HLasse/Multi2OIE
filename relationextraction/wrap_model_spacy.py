@@ -1,3 +1,5 @@
+"""TODO: apply batching on doc level instead"""
+
 from typing import Callable, Dict, Iterable, Iterator, List
 
 import spacy
@@ -10,7 +12,12 @@ from spacy_transformers.align import get_alignment
 from transformers import AutoTokenizer
 
 from .knowledge_triplets import KnowledgeTriplets
-from .util import install_extension, wp2tokid, wp_span_to_token
+from .util import (
+    install_extension,
+    wp2tokid,
+    wp_span_to_token,
+    match_extraction_spans_to_wp,
+)
 
 
 @Language.factory(
@@ -59,6 +66,7 @@ class SpacyRelationExtractor(TrainablePipe):
         confidence_threshold: float,
         model_args,
     ):
+        self.name = name
         self.vocab = vocab
         self.model = KnowledgeTriplets(**model_args)
         self.tokenizer = AutoTokenizer.from_pretrained("bert-base-multilingual-cased")
@@ -75,8 +83,13 @@ class SpacyRelationExtractor(TrainablePipe):
             ]
         ]
 
-    def set_annotations(self, docs: Iterable[Doc], predictions: Dict) -> None:
+    def set_annotations(self, doc: Iterable[Doc], predictions: Dict) -> None:
         """Assign the extracted features to the Doc objects. Extractions below the
+        confidence threshold are filtered, wordpieces and spacy tokens
+        are aligned and then attributes are set .
+
+
+        Assign the extracted features to the Doc object. Extractions below the
         confidence threshold are filtered, wordpieces and spacy tokens
         are aligned and then attributes are set .
         Args:
@@ -84,8 +97,7 @@ class SpacyRelationExtractor(TrainablePipe):
             predictions: (Dict): A batch of outputs from KnowledgeTriplets.extract_relations().
         """
         # remove empty docs
-        docs = [doc for doc in docs if doc]
-        if len(docs) < 1:
+        if not doc:
             return
         # get nested list of indices above confidence threshold
         filtered_indices = [
@@ -103,30 +115,26 @@ class SpacyRelationExtractor(TrainablePipe):
                 for indices, values in zip(filtered_indices, predictions[key])
             ]
 
-        # Calculating alignment between wordpieces and spacy tokenizer
-        align = [
-            get_alignment([doc], [wp], self.tokenizer.all_special_tokens)
-            for doc, wp in zip(docs, predictions["wordpieces"])
-        ]
-        # getting wordpiece to token id mapping
-        wp2tokids = [wp2tokid(aligned_doc) for aligned_doc in align]
-        # transforming wp span to spacy Span
-        extraction_spans = [
-            wp_span_to_token(relation_span, wp2tokid_mapping, spacy_doc)
-            for relation_span, wp2tokid_mapping, spacy_doc in zip(
-                predictions["extraction_span"], wp2tokids, docs
-            )
-        ]
-        for idx, (doc, data) in enumerate(zip(docs, extraction_spans)):
-            setattr(doc._, "relation_triplets", data["triplet"])
-            setattr(
-                doc._,
-                "relation_confidence",
-                predictions["confidence"][idx],
-            )
-            setattr(doc._, "relation_head", data["head"])
-            setattr(doc._, "relation_relation", data["relation"])
-            setattr(doc._, "relation_tail", data["tail"])
+        # concatenate wordpieces and concatenate extraction span. Handle new extraction spans by adding the length of the previous
+        # Join wordpieces to single list
+        wordpieces = [j for i in predictions["wordpieces"] for j in i]
+        # Concatenate extraction spans.
+
+        matched_extractions = match_extraction_spans_to_wp(
+            predictions["extraction_span"], predictions["wordpieces"]
+        )
+
+        align = get_alignment([doc], [wordpieces], self.tokenizer.all_special_tokens)
+        wp2tokids = wp2tokid(align)
+        aligned_extractions = wp_span_to_token(matched_extractions, wp2tokids, doc)
+
+        # Set doc level attributes
+        merged_confidence = [j for i in predictions["confidence"] for j in i]
+        setattr(doc._, "relation_triplets", aligned_extractions["triplet"])
+        setattr(doc._, "relation_confidence", merged_confidence)
+        setattr(doc._, "relation_head", aligned_extractions["head"])
+        setattr(doc._, "relation_relation", aligned_extractions["relation"])
+        setattr(doc._, "relation_tail", aligned_extractions["tail"])
 
     def __call__(self, doc: Doc) -> Doc:
         """Apply the pipe to one document. The document is modified in place,
@@ -150,12 +158,10 @@ class SpacyRelationExtractor(TrainablePipe):
         YIELDS (Doc): Processed documents in order.
         DOCS: https://spacy.io/api/transformer#pipe
         """
-        for outer_batch in minibatch(stream, batch_size):
-            outer_batch = list(outer_batch)
-            outer_batch_text = [doc.text for doc in outer_batch]
-            self.set_annotations(outer_batch, self.predict(outer_batch_text))
-
-            yield from outer_batch
+        for doc in stream:
+            sents = [sent.text for sent in doc.sents]
+            self.set_annotations(doc, self.predict(sents))
+            yield doc
 
     def predict(self, docs: Iterable[Doc]) -> Dict:
         """Apply the pipeline's model to a batch of docs, without modifying them.
