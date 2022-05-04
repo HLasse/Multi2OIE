@@ -135,12 +135,16 @@ def install_extension(doc_attr) -> None:
         Doc.set_extension(doc_attr, default=None)
 
 
-def join_extraction_spans(spans: List[List[List[int]]]):
-    return [item for sublist in l for item in sublist]
+def match_extraction_spans_to_wp(
+    extraction_spans: List[List[List[List[str]]]], wordpieces: List[str]
+):
+    """Correct the extracted spans from the model to match wordpieces in sentences that are not the first.
 
+    Args:
+        extraction_spans (List[List[List[List[str]]]]): The extracted spans
+        wordpieces (List[str]): Wordpieces
 
-def match_extraction_spans_to_wp(extraction_spans, wordpieces):
-
+    """
     max_wp_idx = 0
     matched_extractions = []
     for i, sent_span in enumerate(extraction_spans):
