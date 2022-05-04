@@ -44,12 +44,12 @@ class KnowledgeTriplets:
         model_path: Optional[str] = None,
         batch_size: int = 64,
         max_len: int = 64,
-        num_workers: int = 4,
+        num_workers: int = 1,  # it should be one if device is CPU otherwise torch is competing for cpus
         pin_memory: bool = True,
-    ):
+    ): 
 
         self._bert_config = "bert-base-multilingual-cased"
-        self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # should we add a manual overwrite to this (force cpu on gpu) 
         self._batch_size = batch_size
         self._max_len = max_len
         self._num_workers = num_workers
@@ -69,7 +69,7 @@ class KnowledgeTriplets:
             device=self._device,
         )
 
-        model.load_state_dict(torch.load(path), strict=False)
+        model.load_state_dict(torch.load(path, map_location=self._device), strict=False)
         model.zero_grad()
         model.eval()
 
