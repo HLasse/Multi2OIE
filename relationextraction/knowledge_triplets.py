@@ -44,7 +44,7 @@ class KnowledgeTriplets:
         model_path: Optional[str] = None,
         batch_size: int = 64,
         max_len: int = 64,
-        num_workers: int = 4,
+        num_workers: int = 1,  # it should be one if device is CPU otherwise torch is competing for cpus
         pin_memory: bool = True,
         device: Optional[str] = None,
     ):
