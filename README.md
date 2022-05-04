@@ -74,7 +74,10 @@ test_sents = [
     "En av Belgiens mest framträdande virusexperter har flyttats med sin familj till skyddat boende efter hot från en beväpnad högerextremist.",
 ]
 
-config = {"confidence_threshold": 1.0, "model_args": {"batch_size": 10}}
+
+# change these to your purposes. 2.7 is the default confidence threshold(the bulk of bad relations not kept and the majority of correct ones kept)
+# batch_size should be changed according to your device. Can most likely be bumped up a fair bit
+config = {"confidence_threshold": 2.7, "model_args": {"batch_size": 10}}
 nlp.add_pipe("relation_extractor", config=config)
 
 pipe = nlp.pipe(test_sents)
@@ -86,7 +89,8 @@ for d in pipe:
 
 
 
-
+## ISSUE:
+- Run the model sentence wise
 
 
 

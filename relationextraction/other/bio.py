@@ -101,7 +101,7 @@ def filter_arg_tags(arg_tags, pred_tags, tokens):
             if tag == arg_tag2idx['O']:
                 flag_idx = 999
                 continue
-            arg_n = tag // 2  # 0: A0 / 1: A1 / ...
+            arg_n = torch.div(tag, 2, rounding_mode='floor')  # 0: A0 / 1: A1 / ...
             inside = tag % 2  # 0: begin / 1: inside
             if not inside and flag_idx != arg_n:
                 flag_idx = arg_n

@@ -21,7 +21,7 @@ from .util import (
 @Language.factory(
     "relation_extractor",
     default_config={
-        "confidence_threshold": 1.0,
+        "confidence_threshold": 2.7,
         "labels": [],
         "model_args": {
             "batch_size": 64,
