@@ -46,10 +46,16 @@ class KnowledgeTriplets:
         max_len: int = 64,
         num_workers: int = 4,
         pin_memory: bool = True,
+        device: Optional[str] = None,
     ):
 
         self._bert_config = "bert-base-multilingual-cased"
-        self._device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        if not device:
+            self._device = torch.device(
+                "cuda:0" if torch.cuda.is_available() else "cpu"
+            )
+        else:
+            self._device = device
         self._batch_size = batch_size
         self._max_len = max_len
         self._num_workers = num_workers
@@ -69,7 +75,7 @@ class KnowledgeTriplets:
             device=self._device,
         )
 
-        model.load_state_dict(torch.load(path), strict=False)
+        model.load_state_dict(torch.load(path, map_location=torch.device(self._device)), strict=False)
         model.zero_grad()
         model.eval()
 
@@ -95,7 +101,11 @@ class KnowledgeTriplets:
     def _prepare_data(self, sents: List[str]):
         dataset = EvalDataset(sents, self._max_len, self._bert_config)
         test_loader = DataLoader(
-            dataset, batch_size=self._batch_size, num_workers=self._num_workers, pin_memory=self._pin_memory, shuffle=False
+            dataset,
+            batch_size=self._batch_size,
+            num_workers=self._num_workers,
+            pin_memory=self._pin_memory,
+            shuffle=False,
         )
         return test_loader
 
